@@ -98,19 +98,18 @@ def breadthFirstSearch(problem):
     explored[problem.getStartState()] = None
     while not frontier.isEmpty():
         u = frontier.pop()
+        if problem.isGoalState(u[0]):
+            cur = u
+            result = [u[1]]
+            while explored[cur[0]] != origin:
+                cur = explored[cur[0]]
+                result.append(cur[1])
+            result.reverse()
+            return result
         for v in problem.getSuccessors(u[0]):
-            if problem.isGoalState(v[0]):
-                result = [v, u]
-                cur = u
-                while explored[cur] != origin:
-                    cur = explored[cur]
-                    result.append(cur)
-                result.reverse()
-                return [entry[1] for entry in result]
-            else:
-                if not v in explored.keys():
-                    explored[v] = u
-                    frontier.push(v)
+            if not v[0] in explored.keys():
+                explored[v[0]] = u
+                frontier.push(v)
 
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
