@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -17,7 +17,9 @@ In search.py, you will implement generic search algorithms which are called by
 Pacman agents (in searchAgents.py).
 """
 
+from game import Actions
 import util
+
 
 class SearchProblem:
     """
@@ -70,7 +72,8 @@ def tinyMazeSearch(problem):
     from game import Directions
     s = Directions.SOUTH
     w = Directions.WEST
-    return  [s, s, w, s, w, w, s, w]
+    return [s, s, w, s, w, w, s, w]
+
 
 def depthFirstSearch(problem):
     """
@@ -86,8 +89,47 @@ def depthFirstSearch(problem):
     print "Is the start a goal?", problem.isGoalState(problem.getStartState())
     print "Start's successors:", problem.getSuccessors(problem.getStartState())
     """
-    "*** YOUR CODE HERE ***"
-    util.raiseNotDefined() # REMOVE THIS ONCE YOU IMPLEMENTED YOUR CODE
+    explored = set()
+    path = dict()  # {to: (from, act)}
+    frontier = util.Stack()  # store edge
+    gHat = dict()
+    start = problem.getStartState()
+    frontier.push(start)
+    gHat[start] = 0
+    while not frontier.isEmpty():
+        u = frontier.pop()
+        explored.add(u)
+
+        if problem.isGoalState(u):
+            return genActionFromPath(start, u, path)
+
+        for v in problem.getSuccessors(u):
+            if v[0] not in explored:
+                frontier.push(v[0])
+                path[v[0]] = (u, v[1])
+
+
+def genPath(start, end, explored):
+    path = []
+    curr = end
+    while curr != start:
+        action = explored[curr]
+        path.append(action[2])
+        curr = action[0]
+    path.reverse()
+    return path
+
+
+def genActionFromPath(start, end, path):
+    actions = []
+    curr = end
+    while curr != start:
+        action = path[curr][1]
+        actions.append(action)
+        curr = path[curr][0]
+    actions.reverse()
+    return actions
+
 
 def breadthFirstSearch(problem):
     """Search the shallowest nodes in the search tree first."""
@@ -111,17 +153,47 @@ def breadthFirstSearch(problem):
                 explored[v[0]] = u
                 frontier.push(v)
 
+
 def uniformCostSearch(problem):
     """Search the node of least total cost first."""
     "*** YOUR CODE HERE ***"
-    util.raiseNotDefined() # REMOVE THIS ONCE YOU IMPLEMENTED YOUR CODE
+    explored = set()
+    path = dict()  # {to: (from, act)}
+    frontier = util.PriorityQueue()  # store edge
+    gHat = dict()
+    start = problem.getStartState()
+    frontier.push(start, 0)
+    gHat[start] = 0
+    while not frontier.isEmpty():
+        u = frontier.pop()
+        explored.add(u)
+
+        if problem.isGoalState(u):
+            return genActionFromPath(start, u, path)
+
+        for v in problem.getSuccessors(u):
+            if v[0] not in explored:
+                updateGHatAndPath(gHat, path, u, v)
+                frontier.update(v[0], gHat[v[0]])
+
+
+def updateGHatAndPath(gHat, path, fron, action):
+    (to, act, cost) = action
+    if to in gHat:
+        gHat[to] = min(gHat[to], gHat[fron] + cost)
+        path[to] = (fron, act) if gHat[fron] + cost < gHat[to] else path[to]
+    else:
+        gHat[to] = gHat[fron] + cost
+        path[to] = (fron, act)
+
 
 def nullHeuristic(state, problem=None):
     """
     A heuristic function estimates the cost from the current state to the nearest
     goal in the provided SearchProblem.  This heuristic is trivial.
     """
-    return 0 
+    return 0
+
 
 def aStarSearch(problem, heuristic=nullHeuristic):
     """Search the node that has the lowest combined cost and heuristic first."""
@@ -150,10 +222,9 @@ def aStarSearch(problem, heuristic=nullHeuristic):
             if not v[0] in explored:
                 if not v[0] in cost.keys() or cost[v[0]] > cost[u] + v[2]:
                     cost[v[0]] = cost[u] + v[2]
-                    frontier.update(v[0], cost[v[0]] + heuristic(v[0], problem))
+                    frontier.update(v[0], cost[v[0]] +
+                                    heuristic(v[0], problem))
                     predecessor[v[0]] = (u, v[1])
-
-
 
 
 # Abbreviations
