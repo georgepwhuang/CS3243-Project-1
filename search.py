@@ -92,10 +92,8 @@ def depthFirstSearch(problem):
     explored = set()
     path = dict()  # {to: (from, act)}
     frontier = util.Stack()  # store edge
-    gHat = dict()
     start = problem.getStartState()
     frontier.push(start)
-    gHat[start] = 0
     while not frontier.isEmpty():
         u = frontier.pop()
         explored.add(u)
@@ -180,8 +178,8 @@ def uniformCostSearch(problem):
 def updateGHatAndPath(gHat, path, fron, action):
     (to, act, cost) = action
     if to in gHat:
-        gHat[to] = min(gHat[to], gHat[fron] + cost)
         path[to] = (fron, act) if gHat[fron] + cost < gHat[to] else path[to]
+        gHat[to] = min(gHat[to], gHat[fron] + cost)
     else:
         gHat[to] = gHat[fron] + cost
         path[to] = (fron, act)
