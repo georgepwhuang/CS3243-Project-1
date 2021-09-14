@@ -382,57 +382,15 @@ def cornersHeuristic(state, problem):
     shortest path from the state to a goal of the problem; i.e.  it should be
     admissible (as well as consistent).
     """
-    corners = problem.corners  # These are the corner coordinates
-    # These are the walls of the maze, as a Grid (game.py)
-    walls = problem.walls
-
-    # solution 1 ====> 1357
-    # if len(state[1]) == 0:
-    #     return 0
-    # xy1 = state[0]
-    # xy2 = state[1][0]
-    # return ((xy1[0] - xy2[0]) ** 2 + (xy1[1] - xy2[1]) ** 2) ** 0.5
-
-    # solution 2 ====> 2838
-    # goals = state[1]
-    # result = 99999999
-    # for goal in goals:
-    #     "The Euclidean distance heuristic for a PositionSearchProblem"
-    #     xy1 = state[0]
-    #     xy2 = goal
-    #     euclideanD = ((xy1[0] - xy2[0]) ** 2 + (xy1[1] - xy2[1]) ** 2) ** 0.5
-    #     result = min(euclideanD, result)
-    # return result
-
-    # solution 3 ====> 1248
-    if len(state[1]) == 0:
+    pos = state[0]
+    goals = state[1]
+    if len(goals) == 0:
         return 0
-    xy1 = state[0]
-    xy2 = state[1][0]
-    return abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
-
-    # solution 4 ====> 2838
-    # goals = state[1]
-    # result = 99999999
-    # for goal in goals:
-    #     "The Euclidean distance heuristic for a PositionSearchProblem"
-    #     xy1 = state[0]
-    #     xy2 = goal
-    #     manhattanD = abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
-    #     result = min(manhattanD, result)
-    # return result
-
-    # solution 5 ====> inconsistent
-    # goals = state[1]
-    # result = 0
-    # for goal in goals:
-    #     "The Euclidean distance heuristic for a PositionSearchProblem"
-    #     xy1 = state[0]
-    #     xy2 = goal
-    #     manhattanD = abs(xy1[0] - xy2[0]) + abs(xy1[1] - xy2[1])
-    #     result = result + manhattanD
-    # return result
-
+    result = []
+    for i in range(0, len(goals)):
+        result.append(abs(pos[0] - goals[i][0]) + abs(pos[1] - goals[i][1]))
+    result = max(result)
+    return result
 
 class AStarCornersAgent(SearchAgent):
     "A SearchAgent for FoodSearchProblem using A* and your foodHeuristic"
