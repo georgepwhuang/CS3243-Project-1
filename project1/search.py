@@ -107,17 +107,6 @@ def depthFirstSearch(problem):
                 path[v[0]] = (u, v[1])
 
 
-def genPath(start, end, explored):
-    path = []
-    curr = end
-    while curr != start:
-        action = explored[curr]
-        path.append(action[2])
-        curr = action[0]
-    path.reverse()
-    return path
-
-
 def genActionFromPath(start, end, path):
     actions = []
     curr = end
