@@ -3,6 +3,7 @@
 
 import sys
 import copy
+import time
 
 # Running script: given code can be run with the command:
 # python file.py, ./path/to/init_state.txt ./output/output.txt
@@ -20,10 +21,12 @@ class Sudoku(object):
 
         self.assign = dict()
         self.constraints = dict()
+        self.currC = None
         for i in range(9):
             for j in range(9):
                 self.constraints[(i, j)] = self.__generate_constraints__(i, j)
-                self.assign[(i, j)] = {puzzle[i][j]} if puzzle[i][j] != 0 else set(range(1, 10))
+                self.assign[(i, j)] = {
+                    puzzle[i][j]} if puzzle[i][j] != 0 else set(range(1, 10))
         # infer for assigned values
         for i in range(9):
             for j in range(9):
@@ -47,11 +50,21 @@ class Sudoku(object):
                 inference[(i, j)] = set()
         return inference
 
+    def __get_inference_size__(self, inference):
+        if inference is None:
+            return 0
+        sol = 0
+        for i in range(9):
+            for j in range(9):
+                sol += len(inference[(i, j)])
+        return sol
+
     def __infer__(self, var):
         inference = self.__init_inference__()
         for c in self.constraints[var]:
             assigned = [(x, self.assign[x]) for x in c.vars]
-            by_length = [dict(), dict(), dict(), dict(), dict(), dict(), dict(), dict()]
+            by_length = [dict(), dict(), dict(), dict(),
+                         dict(), dict(), dict(), dict()]
             for idx, value in assigned:
                 if len(value) == 1:
                     v = value.pop()
@@ -80,21 +93,62 @@ class Sudoku(object):
                     return None
         return inference
 
+    def __sort_domain__(self, pos):
+        valueDomain = []
+        for val in self.assign[pos]:
+            domain = self.assign[pos]
+            self.assign[pos] = {val}
+            inference = self.__infer__(pos)
+            self.assign[pos] = domain
+            if inference is not None:
+                self.__clean_inference__(inference)
+
+            valueDomain.append((val, inference))
+        valueDomain.sort(
+            key=lambda tup: self.__get_inference_size__(tup[1]), reverse=False)
+        return valueDomain
+
+    def __all_assigned__(self, colId):
+        for i in range(9):
+            if self.ans[i][colId] == 0:
+                return False
+        return True
+
     # apply minimum remaining value heuristics
     def __get_unassigned_var__(self):
-        unassignedVars = []
-        for i in range(9):
-            for j in range(9):
-                if self.ans[i][j] == 0:
-                    unassignedVars.append((i, j))
-        if len(unassignedVars) == 0:
+        if not self.currC or self.__all_assigned__(self.currC):
+            self.currC = self.__getMRV_col__()
+
+        if self.currC == None:
             return None
 
-        min = unassignedVars[0]
-        for var in unassignedVars:
-            if len(self.assign[var]) < len(self.assign[min]):
-                min = var
+        min = None
+        for i in range(9):
+            l = len(self.assign[(i, self.currC)])
+            if self.ans[i][self.currC] != 0:
+                continue
+            if not min:
+                min = (i, self.currC)
+                continue
+            if l < len(self.assign[min]):
+                min = (i, self.currC)
+
         return min
+
+    def __getMRV_col__(self):
+        rvs = []
+        for i in range(9):
+            rv = 0
+            for j in range(9):
+                if self.ans[j][i] == 0:
+                    var = (j, i)
+                    rv += len(self.assign[var])
+            rvs.append(rv)
+        rvs = [81 if x == 0 else x for x in rvs]
+        min_rv = min(rvs)
+        if min_rv == 81:
+            return None
+        return rvs.index(min_rv)
 
     def __assign_to_sodoku__(self):
         for i in range(9):
@@ -125,14 +179,11 @@ class Sudoku(object):
 
         self.ans[var[0]][var[1]] = 10
 
-        reversedDomain = list(self.assign[var])
-        reversedDomain.reverse()
-        for value in reversedDomain:
+        sortedDomain = self.__sort_domain__(var)
+        for (value, inference) in sortedDomain:
             domain = self.assign[var]
             self.assign[var] = {value}
-            inference = self.__infer__(var)
             if inference is not None:
-                self.__clean_inference__(inference)
                 self.__difference__(inference)
                 result = self.solve()
                 if result is not None:
@@ -152,13 +203,13 @@ class Sudoku(object):
 if __name__ == "__main__":
     # STRICTLY do NOT modify the code in the main function here
     if len(sys.argv) != 3:
-        print ("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
+        print("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
         raise ValueError("Wrong number of arguments!")
 
     try:
         f = open(sys.argv[1], 'r')
     except IOError:
-        print ("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
+        print("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
         raise IOError("Input file not found!")
 
     puzzle = [[0 for i in range(9)] for j in range(9)]
@@ -174,8 +225,11 @@ if __name__ == "__main__":
                     i += 1
                     j = 0
 
+    start = time.time()
     sudoku = Sudoku(puzzle)
     ans = sudoku.solve()
+    end = time.time()
+    print(end - start)
 
     with open(sys.argv[2], 'a') as f:
         for i in range(9):
