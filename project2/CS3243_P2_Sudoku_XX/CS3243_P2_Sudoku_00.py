@@ -3,7 +3,6 @@
 
 import sys
 import copy
-import time
 
 # Running script: given code can be run with the command:
 # python file.py, ./path/to/init_state.txt ./output/output.txt
@@ -22,12 +21,12 @@ class Sudoku(object):
         self.assign = dict()
         self.constraints = dict()
         self.currC = None
+        self.constraint_list = self.__generate_constraints__()
         self.currR = None
         for i in range(9):
             for j in range(9):
-                self.constraints[(i, j)] = self.__generate_constraints__(i, j)
-                self.assign[(i, j)] = {
-                    puzzle[i][j]} if puzzle[i][j] != 0 else set(range(1, 10))
+                self.constraints[(i, j)] = self.__get_constraints__(i, j)
+                self.assign[(i, j)] = {puzzle[i][j]} if puzzle[i][j] != 0 else set(range(1, 10))
         # infer for assigned values
         for i in range(9):
             for j in range(9):
@@ -35,14 +34,22 @@ class Sudoku(object):
                     inference = self.__infer__((i, j))
                     self.__difference__(inference)
 
-    def __generate_constraints__(self, x, y):
-        samerow = [(x, i) for i in range(9)]
-        samecol = [(i, y) for i in range(9)]
+    def __generate_constraints__(self):
+        samecol = [self.Constraint([(x, i) for i in range(9)]) for x in range(9)]
+        samerow = [self.Constraint([(i, y) for i in range(9)]) for y in range(9)]
         sameblock = []
-        for i in range((x // 3) * 3, (x // 3) * 3 + 3):
-            for j in range((y // 3) * 3, (y // 3) * 3 + 3):
-                sameblock.append((i, j))
-        return [self.Constraint(sameblock), self.Constraint(samerow), self.Constraint(samecol)]
+        for x in range(3):
+            for y in range(3):
+                block = []
+                for i in range(x * 3, x * 3 + 3):
+                    for j in range(y * 3, y * 3 + 3):
+                        block.append((i, j))
+                sameblock.append(self.Constraint(block))
+        return [samecol, samerow, sameblock]
+
+    def __get_constraints__(self, x, y):
+        block_no = x // 3 * 3 + y // 3
+        return [self.constraint_list[0][x], self.constraint_list[1][y], self.constraint_list[2][block_no]]
 
     def __init_inference__(self):
         inference = dict()
@@ -54,10 +61,7 @@ class Sudoku(object):
     def __get_inference_size__(self, inference):
         if inference is None:
             return 0
-        sol = 0
-        for i in range(9):
-            for j in range(9):
-                sol += len(inference[(i, j)])
+        sol = sum([len(value) for value in inference.values()])
         return sol
 
     def __infer__(self, var):
@@ -75,18 +79,18 @@ class Sudoku(object):
                     value.add(v)
                 else:
                     value = tuple(value)
-                    if value in by_length[len(value)-2]:
+                    if value in by_length[len(value) - 2]:
                         by_length[len(value) - 2][value].append(idx)
                     else:
                         by_length[len(value) - 2][value] = [idx]
             for i in range(0, 7):
                 for value in by_length[i]:
                     idxs = by_length[i][value]
-                    if len(idxs) == i+2:
+                    if len(idxs) == i + 2:
                         for x in c.vars:
                             if x not in idxs:
                                 inference[x].update(value)
-                    elif len(idxs) > i+2:
+                    elif len(idxs) > i + 2:
                         return None
             for x in c.vars:
                 newDomain = self.assign[x] - inference[x]
@@ -98,16 +102,13 @@ class Sudoku(object):
     def __sort_domain__(self, pos):
         valueDomain = []
         for val in self.assign[pos]:
-            domain = self.assign[pos]
             self.assign[pos] = {val}
             inference = self.__infer__(pos)
-            self.assign[pos] = domain
             if inference is not None:
                 self.__clean_inference__(inference)
-
-            valueDomain.append((val, inference))
-        valueDomain.sort(
-            key=lambda tup: self.__get_inference_size__(tup[1]), reverse=False)
+                size = self.__get_inference_size__(inference)
+                valueDomain.append((size, val, inference))
+        valueDomain.sort(key=lambda x: x[0])
         return valueDomain
 
     def __all_assigned__(self, id, type="col"):
@@ -140,7 +141,7 @@ class Sudoku(object):
         elif self.currC and self.__all_assigned__(self.currC, "col"):
             self.__set_currId__()
 
-        if self.currC == None and self.currR == None:
+        if self.currC is None and self.currR is None:
             return None
 
         min = None
@@ -197,9 +198,8 @@ class Sudoku(object):
             return ("row", rrvs.index(min_rrv))
 
     def __assign_to_sodoku__(self):
-        for i in range(9):
-            for j in range(9):
-                self.ans[i][j] = self.assign[(i, j)].pop()
+        for key in self.assign:
+            self.ans[key[0]][key[1]] = self.assign[key].pop()
 
     def __difference__(self, inference):
         for key, value in inference.items():
@@ -237,15 +237,15 @@ class Sudoku(object):
     def solve(self):
         # TODO: Write your code here
         var = self.__get_unassigned_var__()
-        if var == None:
+        if var is None:
             self.__assign_to_sodoku__()
             return self.ans
 
         self.ans[var[0]][var[1]] = 10
 
+        domain = self.assign[var]
         sortedDomain = self.__sort_domain__(var)
-        for (value, inference) in sortedDomain:
-            domain = self.assign[var]
+        for size, value, inference in sortedDomain:
             self.assign[var] = {value}
             if inference is not None:
                 self.__difference__(inference)
@@ -254,7 +254,7 @@ class Sudoku(object):
                     if result is not None:
                         return result
                 self.__union__(inference)
-            self.assign[var] = domain
+        self.assign[var] = domain
 
         self.ans[var[0]][var[1]] = 0
         return None
@@ -266,16 +266,15 @@ class Sudoku(object):
 
 
 if __name__ == "__main__":
-    start = time.time()
     # STRICTLY do NOT modify the code in the main function here
     if len(sys.argv) != 3:
-        print("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
+        print ("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
         raise ValueError("Wrong number of arguments!")
 
     try:
         f = open(sys.argv[1], 'r')
     except IOError:
-        print("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
+        print ("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
         raise IOError("Input file not found!")
 
     puzzle = [[0 for i in range(9)] for j in range(9)]
@@ -299,5 +298,3 @@ if __name__ == "__main__":
             for j in range(9):
                 f.write(str(ans[i][j]) + " ")
             f.write("\n")
-    end = time.time()
-    print(end - start)
