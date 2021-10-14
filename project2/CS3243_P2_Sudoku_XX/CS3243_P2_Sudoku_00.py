@@ -22,6 +22,7 @@ class Sudoku(object):
         self.assign = dict()
         self.constraints = dict()
         self.currC = None
+        self.currR = None
         for i in range(9):
             for j in range(9):
                 self.constraints[(i, j)] = self.__generate_constraints__(i, j)
@@ -93,6 +94,7 @@ class Sudoku(object):
                     return None
         return inference
 
+    # apply least constraining value heuristics
     def __sort_domain__(self, pos):
         valueDomain = []
         for val in self.assign[pos]:
@@ -108,47 +110,91 @@ class Sudoku(object):
             key=lambda tup: self.__get_inference_size__(tup[1]), reverse=False)
         return valueDomain
 
-    def __all_assigned__(self, colId):
+    def __all_assigned__(self, id, type="col"):
         for i in range(9):
-            if self.ans[i][colId] == 0:
+            if type == "col" and self.ans[i][id] == 0:
+                return False
+            elif type == "row" and self.ans[id][i] == 0:
                 return False
         return True
 
+    def __set_currId__(self):
+        mrv_id = self.__getMRV_col__()
+
+        if mrv_id and mrv_id[0] == "row":
+            self.currR = mrv_id[1]
+            self.currC = None
+        elif mrv_id:
+            self.currC = mrv_id[1]
+            self.currR = None
+        else:
+            self.currC = None
+            self.currR = None
+
     # apply minimum remaining value heuristics
     def __get_unassigned_var__(self):
-        if not self.currC or self.__all_assigned__(self.currC):
-            self.currC = self.__getMRV_col__()
+        if (not self.currR and not self.currC):
+            self.__set_currId__()
+        elif self.currR and self.__all_assigned__(self.currR, "row"):
+            self.__set_currId__()
+        elif self.currC and self.__all_assigned__(self.currC, "col"):
+            self.__set_currId__()
 
-        if self.currC == None:
+        if self.currC == None and self.currR == None:
             return None
 
         min = None
-        for i in range(9):
-            l = len(self.assign[(i, self.currC)])
-            if self.ans[i][self.currC] != 0:
-                continue
-            if not min:
-                min = (i, self.currC)
-                continue
-            if l < len(self.assign[min]):
-                min = (i, self.currC)
+        if self.currC is not None:
+            for i in range(9):
+                l = len(self.assign[(i, self.currC)])
+                if self.ans[i][self.currC] != 0:
+                    continue
+                if not min:
+                    min = (i, self.currC)
+                    continue
+                if l < len(self.assign[min]):
+                    min = (i, self.currC)
+        elif self.currR is not None:
+            for i in range(9):
+                l = len(self.assign[(self.currR, i)])
+                if self.ans[self.currR][i] != 0:
+                    continue
+                if not min:
+                    min = (self.currR, i)
+                    continue
+                if l < len(self.assign[min]):
+                    min = (self.currR, i)
 
         return min
 
     def __getMRV_col__(self):
-        rvs = []
+        crvs = []
+        rrvs = []
         for i in range(9):
-            rv = 0
+            crv = 0
+            rrv = 0
             for j in range(9):
                 if self.ans[j][i] == 0:
                     var = (j, i)
-                    rv += len(self.assign[var])
-            rvs.append(rv)
-        rvs = [81 if x == 0 else x for x in rvs]
-        min_rv = min(rvs)
-        if min_rv == 81:
+                    crv += len(self.assign[var])
+                if self.ans[i][j] == 0:
+                    var = (i, j)
+                    rrv += len(self.assign[var])
+            crvs.append(crv)
+            rrvs.append(rrv)
+
+        if max(crvs) == 0:
             return None
-        return rvs.index(min_rv)
+
+        crvs = [81 if x == 0 else x for x in crvs]
+        rrvs = [81 if x == 0 else x for x in rrvs]
+        min_crv = min(crvs)
+        min_rrv = min(rrvs)
+
+        if min_crv < min_rrv:
+            return ("col", crvs.index(min_crv))
+        else:
+            return ("row", rrvs.index(min_rrv))
 
     def __assign_to_sodoku__(self):
         for i in range(9):
@@ -170,6 +216,24 @@ class Sudoku(object):
             if len(value) != 0:
                 inference[key] = self.assign[key].intersection(value)
 
+    def __is_arc_consistent__(self):
+        for i in range(9):
+            numUnassignR = 0
+            numUnassignC = 0
+            rowDomain = set()
+            colDomain = set()
+            for j in range(9):
+                if self.ans[i][j] == 0:
+                    numUnassignR += 1
+                    rowDomain = rowDomain.union(self.assign[(i, j)])
+                if self.ans[j][i] == 0:
+                    numUnassignC += 1
+                    colDomain = colDomain.union(self.assign[(j, i)])
+            if len(rowDomain) < numUnassignR or len(colDomain) < numUnassignC:
+                return False
+
+        return True
+
     def solve(self):
         # TODO: Write your code here
         var = self.__get_unassigned_var__()
@@ -185,9 +249,10 @@ class Sudoku(object):
             self.assign[var] = {value}
             if inference is not None:
                 self.__difference__(inference)
-                result = self.solve()
-                if result is not None:
-                    return result
+                if self.__is_arc_consistent__():
+                    result = self.solve()
+                    if result is not None:
+                        return result
                 self.__union__(inference)
             self.assign[var] = domain
 
@@ -201,6 +266,7 @@ class Sudoku(object):
 
 
 if __name__ == "__main__":
+    start = time.time()
     # STRICTLY do NOT modify the code in the main function here
     if len(sys.argv) != 3:
         print("\nUsage: python CS3243_P2_Sudoku_XX.py input.txt output.txt\n")
@@ -225,14 +291,13 @@ if __name__ == "__main__":
                     i += 1
                     j = 0
 
-    start = time.time()
     sudoku = Sudoku(puzzle)
     ans = sudoku.solve()
-    end = time.time()
-    print(end - start)
 
     with open(sys.argv[2], 'a') as f:
         for i in range(9):
             for j in range(9):
                 f.write(str(ans[i][j]) + " ")
             f.write("\n")
+    end = time.time()
+    print(end - start)
