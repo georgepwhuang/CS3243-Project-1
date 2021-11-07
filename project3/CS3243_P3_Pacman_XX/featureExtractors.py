@@ -17,6 +17,7 @@
 from game import Directions, Actions
 import util
 
+
 class FeatureExtractor:
     def getFeatures(self, state, action):
         """
@@ -26,11 +27,13 @@ class FeatureExtractor:
         """
         util.raiseNotDefined()
 
+
 class IdentityExtractor(FeatureExtractor):
     def getFeatures(self, state, action):
         feats = util.Counter()
-        feats[(state,action)] = 1.0
+        feats[(state, action)] = 1.0
         return feats
+
 
 class CoordinateExtractor(FeatureExtractor):
     def getFeatures(self, state, action):
@@ -40,6 +43,7 @@ class CoordinateExtractor(FeatureExtractor):
         feats['y=%d' % state[0]] = 1.0
         feats['action=%s' % action] = 1.0
         return feats
+
 
 def closestFood(pos, food, walls):
     """
@@ -59,9 +63,22 @@ def closestFood(pos, food, walls):
         # otherwise spread out from the location to its neighbours
         nbrs = Actions.getLegalNeighbors((pos_x, pos_y), walls)
         for nbr_x, nbr_y in nbrs:
-            fringe.append((nbr_x, nbr_y, dist+1))
+            fringe.append((nbr_x, nbr_y, dist + 1))
     # no food found
     return None
+
+
+def closestCapsule(pos, capsule):
+    """
+    closestFood -- this is similar to the function that we have
+    worked on in the search project; here its all in one place
+    """
+    result = [abs(pos[0] - cap[0]) + abs(pos[1] - cap[1]) for cap in capsule]
+    if len(result) == 0:
+        return None
+    else:
+        return min(result)
+
 
 class SimpleExtractor(FeatureExtractor):
     """
@@ -88,7 +105,8 @@ class SimpleExtractor(FeatureExtractor):
         next_x, next_y = int(x + dx), int(y + dy)
 
         # count the number of ghosts 1-step away
-        features["#-of-ghosts-1-step-away"] = sum((next_x, next_y) in Actions.getLegalNeighbors(g, walls) for g in ghosts)
+        features["#-of-ghosts-1-step-away"] = sum(
+            (next_x, next_y) in Actions.getLegalNeighbors(g, walls) for g in ghosts)
 
         # if there is no danger of ghosts then add the food feature
         if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
@@ -102,13 +120,54 @@ class SimpleExtractor(FeatureExtractor):
         features.divideAll(10.0)
         return features
 
+
 class NewExtractor(FeatureExtractor):
     """
     Design you own feature extractor here. You may define other helper functions you find necessary.
     """
+
     def getFeatures(self, state, action):
-        "*** YOUR CODE HERE ***"
-        pass
+        food = state.getFood()
+        walls = state.getWalls()
+        ghosts = state.getGhostStates()
+        capsules = state.getCapsules()
+        numFood = state.getNumFood()
 
+        features = util.Counter()
 
-        
+        features["bias"] = 1.0
+
+        # compute the location of pacman after he takes the action
+        x, y = state.getPacmanPosition()
+        dx, dy = Actions.directionToVector(action)
+        next_x, next_y = int(x + dx), int(y + dy)
+
+        # count the number of ghosts 1-step away
+        ghost_dist = [abs(g.getPosition()[0] - next_x) + abs(g.getPosition()[1] - next_y)
+                      for g in ghosts if g.scaredTimer < 3]
+        if len(ghost_dist) == 0:
+            features["closest-ghost"] = 1.0
+        elif min(ghost_dist) == 0:
+            features["closest-ghost"] = 0.0
+        else:
+            features["closest-ghost"] = 1.0 - 1.0/min(ghost_dist)
+
+        # if there is no danger of ghosts then add the food feature
+        if features["closest-ghost"] > 0 and food[next_x][next_y]:
+            features["eats-food"] = 1.0
+
+        if features["closest-ghost"] <= 0.5:
+            dist = closestCapsule((next_x, next_y), capsules)
+            if dist is not None:
+                # make the distance a number less than one otherwise the update
+                # will diverge wildly
+                features["closest-capsule"] = float(dist) / (walls.width + walls.height)
+
+        dist = closestFood((next_x, next_y), food, walls)
+        if dist is not None:
+            # make the distance a number less than one otherwise the update
+            # will diverge wildly
+            features["closest-food"] = float(dist) / (walls.width + walls.height)
+        features["remaining-food"] = numFood / (walls.width * walls.height)
+        features.divideAll(10.0)
+        return features
