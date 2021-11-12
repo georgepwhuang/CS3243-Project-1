@@ -130,7 +130,6 @@ def loadModuleString(moduleSource):
     setModuleName(tmp, k)
     return tmp
 
-import py_compile
 
 def loadModuleFile(moduleName, filePath):
     with open(filePath, 'r') as f:
@@ -215,7 +214,7 @@ def runTest(testName, moduleDict, printTestCase=False, display=None):
         printTest(testDict, solutionDict)
 
     # This is a fragile hack to create a stub grades object
-    grades = grading.Grades(projectParams.PROJECT_NAME, [(None,0)])
+    grades = grading.Grades(projectParams.PROJECT_NAME, [(None, 0)])
     testCase.execute(grades, moduleDict, solutionDict)
 
 
