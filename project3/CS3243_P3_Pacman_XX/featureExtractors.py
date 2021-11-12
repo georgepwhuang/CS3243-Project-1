@@ -147,20 +147,17 @@ class NewExtractor(FeatureExtractor):
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
-        # count the number of scared ghosts
         scared_g = [g for g in ghosts if g.scaredTimer > 0]
         features["#-of-scared-ghosts"] = len(scared_g)
-
-        # count nearby scared ghost
-        for i in range(w+h):  # changeable
-            if features["#-of-scared-ghosts"] == 0:
-                break
-            features["#-of-scared-ghosts-" + str(i + 1) + "-step-away"] = sum(
-                (next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghosts if g.scaredTimer > i)
 
         # count the number of ghosts n-step away
         ghost_dist = [(g, abs(g.getPosition()[0] - next_x) + abs(g.getPosition()[1] - next_y))
                       for g in ghosts]
+
+        # count nearby scared ghost
+        scared_ghosts = [g[1] for g in ghost_dist if g[0].scaredTimer - g[1] > 0]
+        if len(scared_ghosts) > 0:
+            features["nearest-scared-ghost"] = min(scared_ghosts)
 
         for i in range(ghostN): # changeable
             features["#-of-ghosts-" +
@@ -174,7 +171,6 @@ class NewExtractor(FeatureExtractor):
         if dist is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
-            features["closest-food"] = float(dist) / \
-                (walls.width * walls.height)
+            features["closest-food"] = float(dist) / (walls.width * walls.height)
         features.divideAll(10.0)
         return features
