@@ -167,7 +167,7 @@ class NewExtractor(FeatureExtractor):
                      str(i+1) + "-step-away"] = len([gd for gd in ghost_dist if gd[0].scaredTimer <= (i) and gd[1] <= (i+1)])
 
         # if there is no danger of ghosts then add the food feature
-        if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
+        if features["#-of-ghosts-1-step-away"] == 0 and food[next_x][next_y]:
             features["eats-food"] = 1.0
 
         dist = closestFood((next_x, next_y), food, walls)
