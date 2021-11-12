@@ -142,7 +142,7 @@ class NewExtractor(FeatureExtractor):
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
-        # count the number of ghosts 1-step away
+        # inverted distance of closest ghost
         ghost_dist = [abs(g.getPosition()[0] - next_x) + abs(g.getPosition()[1] - next_y)
                       for g in ghosts if g.scaredTimer < 3]
         if len(ghost_dist) == 0:
@@ -153,7 +153,7 @@ class NewExtractor(FeatureExtractor):
             features["closest-ghost"] = 1.0 - 1.0/min(ghost_dist)
 
         # if there is no danger of ghosts then add the food feature
-        if features["closest-ghost"] > 0 and food[next_x][next_y]:
+        if features["closest-ghost"] > 0.5 and food[next_x][next_y]:
             features["eats-food"] = 1.0
 
         if features["closest-ghost"] <= 0.5:
