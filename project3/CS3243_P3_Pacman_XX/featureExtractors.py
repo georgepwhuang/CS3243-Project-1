@@ -4,7 +4,7 @@
 # educational purposes provided that (1) you do not distribute or publish
 # solutions, (2) you retain this notice, and (3) you provide clear
 # attribution to UC Berkeley, including a link to http://ai.berkeley.edu.
-# 
+#
 # Attribution Information: The Pacman AI projects were developed at UC Berkeley.
 # The core projects and autograders were primarily created by John DeNero
 # (denero@cs.berkeley.edu) and Dan Klein (klein@cs.berkeley.edu).
@@ -116,7 +116,8 @@ class SimpleExtractor(FeatureExtractor):
         if dist is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
-            features["closest-food"] = float(dist) / (walls.width * walls.height)
+            features["closest-food"] = float(dist) / \
+                (walls.width * walls.height)
         features.divideAll(10.0)
         return features
 
@@ -130,8 +131,12 @@ class NewExtractor(FeatureExtractor):
         food = state.getFood()
         walls = state.getWalls()
         ghosts = state.getGhostStates()
+        ghostN = len(ghosts)
         capsules = state.getCapsules()
         numFood = state.getNumFood()
+
+        h = walls.height
+        w = walls.width
 
         features = util.Counter()
 
@@ -142,32 +147,34 @@ class NewExtractor(FeatureExtractor):
         dx, dy = Actions.directionToVector(action)
         next_x, next_y = int(x + dx), int(y + dy)
 
-        # inverted distance of closest ghost
-        ghost_dist = [abs(g.getPosition()[0] - next_x) + abs(g.getPosition()[1] - next_y)
-                      for g in ghosts if g.scaredTimer < 3]
-        if len(ghost_dist) == 0:
-            features["closest-ghost"] = 1.0
-        elif min(ghost_dist) == 0:
-            features["closest-ghost"] = 0.0
-        else:
-            features["closest-ghost"] = 1.0 - 1.0/min(ghost_dist)
+        # count the number of scared ghosts
+        scared_g = [g for g in ghosts if g.scaredTimer > 0]
+        features["#-of-scared-ghosts"] = len(scared_g)
+
+        # count nearby scared ghost
+        for i in range(w+h):  # changeable
+            if features["#-of-scared-ghosts"] == 0:
+                break
+            features["#-of-scared-ghosts-" + str(i + 1) + "-step-away"] = sum(
+                (next_x, next_y) in Actions.getLegalNeighbors(g.getPosition(), walls) for g in ghosts if g.scaredTimer > i)
+
+        # count the number of ghosts n-step away
+        ghost_dist = [(g, abs(g.getPosition()[0] - next_x) + abs(g.getPosition()[1] - next_y))
+                      for g in ghosts]
+
+        for i in range(ghostN): # changeable
+            features["#-of-ghosts-" +
+                     str(i+1) + "-step-away"] = len([gd for gd in ghost_dist if gd[0].scaredTimer <= (i) and gd[1] <= (i+1)])
 
         # if there is no danger of ghosts then add the food feature
-        if features["closest-ghost"] > 0.5 and food[next_x][next_y]:
+        if not features["#-of-ghosts-1-step-away"] and food[next_x][next_y]:
             features["eats-food"] = 1.0
-
-        if features["closest-ghost"] <= 0.5:
-            dist = closestCapsule((next_x, next_y), capsules)
-            if dist is not None:
-                # make the distance a number less than one otherwise the update
-                # will diverge wildly
-                features["closest-capsule"] = float(dist) / (walls.width + walls.height)
 
         dist = closestFood((next_x, next_y), food, walls)
         if dist is not None:
             # make the distance a number less than one otherwise the update
             # will diverge wildly
-            features["closest-food"] = float(dist) / (walls.width + walls.height)
-        features["remaining-food"] = numFood / (walls.width * walls.height)
+            features["closest-food"] = float(dist) / \
+                (walls.width * walls.height)
         features.divideAll(10.0)
         return features
